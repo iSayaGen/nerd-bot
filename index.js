@@ -5,6 +5,22 @@ require('dotenv').config();
 // =====================
 const { Client, GatewayIntentBits, Events, Partials, EmbedBuilder } = require('discord.js');
 const { Pool } = require('pg');
+const express = require('express');
+
+// =====================
+// 🌐 KEEP-ALIVE SERVER (RENDER FIX)
+// Required because Render Web Services expect a port
+// =====================
+const app = express();
+
+app.get("/", (req, res) => {
+  res.send("NerdBot is running 🤓");
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`🌐 Keep-alive server running on port ${PORT}`);
+});
 
 // =====================
 // 🤖 DISCORD CLIENT SETUP
@@ -25,7 +41,7 @@ const client = new Client({
 });
 
 // =====================
-// 🗄️ POSTGRES DATABASE (Supabase)
+// 🗄️ POSTGRES DATABASE (SUPABASE)
 // =====================
 const db = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -33,7 +49,7 @@ const db = new Pool({
 });
 
 // =====================
-// ⚙️ CONFIG (from .env)
+// ⚙️ CONFIG
 // =====================
 const CODING_AREA_CATEGORY_ID = process.env.CODING_AREA_CATEGORY_ID;
 const HALL_OF_NERDS_CHANNEL = process.env.HALL_OF_NERDS_CHANNEL;
@@ -58,11 +74,11 @@ function getCategory(message) {
 }
 
 // =====================
-// 🤓 EVENT: REACTION ADDED
+// 🤓 REACTION ADDED EVENT
 // =====================
 client.on(Events.MessageReactionAdd, async (reaction, user) => {
 
-  console.log("\n🤓 Reaction detected");
+  console.log("\n🤓 Reaction detected:", user.id);
 
   if (user.bot) return;
   if (reaction.emoji.name !== '🤓') return;
@@ -77,9 +93,7 @@ client.on(Events.MessageReactionAdd, async (reaction, user) => {
     const category = getCategory(message);
     if (category?.id !== CODING_AREA_CATEGORY_ID) return;
 
-    console.log("✅ Valid reaction for:", author.id);
-
-    // 🔍 CHECK if reaction already counted
+    // 🔍 check duplicate reaction
     const check = await db.query(
       `SELECT 1 FROM reactions WHERE messageId = $1 AND reactorId = $2`,
       [message.id, user.id]
@@ -87,14 +101,13 @@ client.on(Events.MessageReactionAdd, async (reaction, user) => {
 
     if (check.rows.length > 0) return;
 
-    // 💾 STORE reaction (anti-abuse protection)
+    // 💾 store reaction
     await db.query(
-      `INSERT INTO reactions (messageId, reactorId)
-       VALUES ($1, $2)`,
+      `INSERT INTO reactions (messageId, reactorId) VALUES ($1, $2)`,
       [message.id, user.id]
     );
 
-    // ➕ INCREASE nerd score
+    // ➕ increase nerd score
     await db.query(
       `INSERT INTO nerds (userId, count)
        VALUES ($1, 1)
@@ -112,11 +125,11 @@ client.on(Events.MessageReactionAdd, async (reaction, user) => {
 });
 
 // =====================
-// ➖ EVENT: REACTION REMOVED
+// ➖ REACTION REMOVED EVENT
 // =====================
 client.on(Events.MessageReactionRemove, async (reaction, user) => {
 
-  console.log("\n➖ Reaction removed");
+  console.log("\n➖ Reaction removed:", user.id);
 
   if (user.bot) return;
   if (reaction.emoji.name !== '🤓') return;
@@ -130,7 +143,7 @@ client.on(Events.MessageReactionRemove, async (reaction, user) => {
     const author = message.author;
     if (!author || author.bot) return;
 
-    // 🔍 check if reaction exists in DB
+    // 🔍 check if reaction exists
     const check = await db.query(
       `SELECT 1 FROM reactions WHERE messageId = $1 AND reactorId = $2`,
       [message.id, user.id]
@@ -138,7 +151,7 @@ client.on(Events.MessageReactionRemove, async (reaction, user) => {
 
     if (check.rows.length === 0) return;
 
-    // ❌ remove reaction record
+    // ❌ delete reaction record
     await db.query(
       `DELETE FROM reactions WHERE messageId = $1 AND reactorId = $2`,
       [message.id, user.id]
@@ -191,7 +204,7 @@ client.on(Events.InteractionCreate, async interaction => {
   if (!interaction.isChatInputCommand()) return;
   if (interaction.commandName !== 'rank') return;
 
-  console.log("⚡ /rank triggered");
+  console.log("⚡ /rank triggered by:", interaction.user.id);
 
   try {
     await interaction.deferReply();
