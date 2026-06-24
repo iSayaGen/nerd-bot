@@ -1,6 +1,6 @@
 # 🤓 NerdBot — Discord Reaction Ranking System
 
-![Node.js](https://img.shields.io/badge/Node.js-18+-green)
+![Node.js](https://img.shields.io/badge/Runtime-Node.js-green)
 ![Discord](https://img.shields.io/badge/Discord-Bot-blue)
 ![Database](https://img.shields.io/badge/SQLite-Enabled-orange)
 ![Status](https://img.shields.io/badge/status-active-success)
