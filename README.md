@@ -76,11 +76,13 @@ nerd-bot/
 
 Create a `.env` file in the project root:
 
+```
 TOKEN=your_discord_bot_token
 CLIENT_ID=your_client_id
 GUILD_ID=your_server_id
 CODING_AREA_CATEGORY_ID=your_category_id
 HALL_OF_NERDS_CHANNEL=your_channel_id
+```
 
 ---
 
