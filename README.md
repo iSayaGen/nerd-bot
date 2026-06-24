@@ -2,41 +2,43 @@
 
 ![Node.js](https://img.shields.io/badge/Runtime-Node.js-green)
 ![Discord](https://img.shields.io/badge/Discord-Bot-blue)
-![Database](https://img.shields.io/badge/SQLite-Enabled-orange)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Supabase-blue)
+![Hosting](https://img.shields.io/badge/Render-Deployed-green)
 ![Status](https://img.shields.io/badge/status-active-success)
-
-A Discord bot that turns helpful community answers into a **reputation system** using 🤓 reactions.
-Users earn points when others react to their messages with a specific emoji, creating a fun rewarding system. 
 
 ---
 
 ## Overview
 
-NerdBot tracks helpful contributions in a Discord server.  
-When a user reacts with 🤓 to a message, the author receives a point.  
-The system includes a leaderboard, persistence, and basic abuse protection.
+NerdBot is a Discord bot that turns community engagement into a **reputation system** using 🤓 reactions.
+
+Users earn points when others react to their messages, with a specific emoji, creating a fun rewarding system. 
+
+The bot is deployed on **Render** and uses **Supabase PostgreSQL** for persistent cloud storage.
 
 ---
 
 ## 🚀 Features
 
-- 🤓 Reaction-based scoring system
+- 🤓 Reaction-based reputation system
 - 🏆 Live leaderboard (`/rank`)
-- 📢 Hall-of-Nerds announcements
+- 📢 Hall-of-Nerds reward announcements
+- 🔒 Anti-duplicate reaction protection
 - 🧠 Thread + channel support
-- 🔒 Anti-abuse protection (no duplicate rewards)
-- 💾 SQLite persistence (local database)
+- ☁️ Persistent cloud database (Supabase PostgreSQL)
+- 🚀 24/7 cloud hosting (Render)
 
 ---
 
 ## 🧠 How it works
 
-1. A user posts a helpful message
+1. A user posts a helpful message in a designated channel
 2. Another user reacts with 🤓
-3. The author receives +1 Nerd Point
-4. A notification is sent referencing the original message
-5. Points are stored in a database
-6. Top users appear in `/rank`
+3. The message author receives +1 Nerd Point
+4. Points are stored in a database
+5. The reaction is stored to prevent duplicates
+6. A notification is sent referencing the original message
+7. Top users appear in `/rank`
 
 ---
 
@@ -52,8 +54,9 @@ The system includes a leaderboard, persistence, and basic abuse protection.
 
 - Node.js
 - discord.js v14
-- SQLite (lightweight database)
-- dotenv (environment security)
+- PostgreSQL (Supabase)
+- Render (hosting platform)
+- dotenv (environment configuration)
 
 ---
 
@@ -65,9 +68,10 @@ nerd-bot/
 ├── index.js # Main bot logic
 ├── deploy-commands.js # Slash command registration
 ├── package.json
-├── .env # (NOT pushed to GitHub)
+├── .env # Local environment variables (NOT pushed)
 ├── .gitignore
-└── nerds.db # (local database)
+├── scripts/
+│ └── export-db.js # Migration script (local only)
 ```
 
 ---
@@ -82,15 +86,41 @@ CLIENT_ID=your_client_id
 GUILD_ID=your_server_id
 CODING_AREA_CATEGORY_ID=your_category_id
 HALL_OF_NERDS_CHANNEL=your_channel_id
+DATABASE_URL=your_supabase_connection_string
 ```
+
+---
+
+## ☁️ Deployment (Render)
+
+The bot is deployed as a **Render Web Service**.
+
+### Build command:
+
+npm install
+
+### Start command
+
+node index.js
+
+Render automatically redeploys when changes are pushed to GitHub.
+
+---
+
+## 🗄️ Database
+
+- Uses Supabase PostgreSQL
+- Stores user scores and reaction tracking
+- Fully persistent across restarts and deployments
 
 ---
 
 ## ⚠️ Security
 
 - `.env` is excluded from GitHub
-- database is local (SQLite)
+- Database credentials stored in environment variables
 - no sensitive data is exposed in the repository
+- Reaction spam prevention via database tracking
 
 ---
 
@@ -98,7 +128,7 @@ HALL_OF_NERDS_CHANNEL=your_channel_id
 
 🟢 Active development  
 🟢 Fully functional  
-🟢 Ready for 24/7 deployment  
+🟢 Production-ready architecture
 
 ---
 
