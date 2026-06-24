@@ -167,35 +167,40 @@ function getCategory(message) {
 async function syncRoles(guild) {
   try {
     const result = await db.query(
-      `SELECT userId FROM nerds ORDER BY count DESC`
+      `SELECT userid FROM nerds ORDER BY count DESC`
     );
 
     const rows = result.rows;
 
-    const newOrder = rows.map(r => r.userId).join(",");
-    const oldOrder = lastRanking.join(",");
+    // neue Reihenfolge
+    const newRanking = rows.map(r => r.userid).filter(Boolean);
 
-    if (newOrder === oldOrder) {
+    // alte Reihenfolge
+    const oldRanking = lastRanking;
+
+    // vergleichen
+    if (oldRanking.join(",") === newRanking.join(",")) {
       console.log("🧠 Rank unchanged -> skipping role update");
       return;
     }
 
     console.log("🔄 Rank changed -> updating roles");
 
-    lastRanking = rows.map(r => r.userId);
+    // cache updaten
+    lastRanking = newRanking;
 
     for (let i = 0; i < rows.length; i++) {
       let member;
 
       try {
-        member = await guild.members.fetch(rows[i].userId);
+        member = await guild.members.fetch(rows[i].userid);
       } catch (err) {
-        console.log("⚠️ Member not found:", rows[i].userId);
+        console.log("⚠️ Member not found:", rows[i].userid);
         continue;
       }
 
       if (!member || !member.roles) {
-        console.log("⚠️ Invalid member object:", rows[i].userId);
+        console.log("⚠️ Invalid member object:", rows[i].userid);
         continue;
       }
 
