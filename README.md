@@ -50,13 +50,18 @@ The bot is deployed on **Render** and uses **Supabase PostgreSQL** for persisten
 
 ---
 
-## 🛠️ Tech Stack
+## 🏗️ Architecture
 
-- Node.js
-- discord.js v14
-- PostgreSQL (Supabase)
-- Render (hosting platform)
-- dotenv (environment configuration)
+NerdBot is built with a modern production-ready stack:
+
+- 🤖 Discord Bot (Node.js + discord.js)
+- 🗄️ PostgreSQL Database (Supabase)
+- ☁️ Cloud Hosting (Render)
+- 🔄 Continuous Deployment (GitHub → Render)
+- 💾 Persistent Data Storage
+- 🌐 Web Service (keep-alive endpoint for uptime)
+
+This setup ensures scalability, persistence, and real-time responsiveness.
 
 ---
 
