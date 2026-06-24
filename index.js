@@ -57,13 +57,95 @@ const CODING_AREA_CATEGORY_ID = process.env.CODING_AREA_CATEGORY_ID;
 const HALL_OF_NERDS_CHANNEL = process.env.HALL_OF_NERDS_CHANNEL;
 
 // =====================
+// 🏆 ROLE CONFIG
+// =====================
+const ROLE_NERD_1337 = process.env.ROLE_NERD_1337;
+const ROLE_QUANTUM_NERD = process.env.ROLE_QUANTUM_NERD;
+const ROLE_CORE_NERD = process.env.ROLE_CORE_NERD;
+const ROLE_INITIATE_NERD = process.env.ROLE_INITIATE_NERD;
+
+// when bot restarts rank messages are not triggered
+let isInitialSyncDone = false;
+
+// cached ranking state (for diff checking)
+let lastRanking = [];
+
+const lastRoleMap = new Map();
+
+function getRankMessage(roleId) {
+  switch (roleId) {
+    case ROLE_NERD_1337:
+      return `👑 **SYSTEM OVERRIDE COMPLETE**
+
+Du hast den höchsten bekannten Nerd-Level erreicht.
+
+Status: **NERD 1337**
+Zugriff: Root knowledge unlocked
+Reputation: Legendary
+
+Die Matrix erkennt dich als Anomalie der Intelligenz.
+
+🤓 Willkommen an der Spitze.`;
+
+    case ROLE_QUANTUM_NERD: // (Quantum Nerd)
+      return `🧠 **QUANTUM UPGRADE DETECTED**
+
+Dein Denkmodell hat die klassische Logik verlassen.
+
+Status: **Quantum Nerd**
+Effekt: Parallelgedanken aktiviert
+Bonus: Realität leicht instabil
+
+Du beginnst, Lösungen zu sehen, bevor Probleme entstehen.`;
+
+    case ROLE_CORE_NERD: // (Core Nerd)
+      return `⚡ **CORE SYSTEM ACTIVATED**
+
+Du bist jetzt ein stabiler Bestandteil des Nerd-Netzwerks.
+
+Status: Core Nerd
+Zugriff: Erweiterte Denkpfade freigeschaltet
+Performance: Überdurchschnittlich konstant
+
+Du bist kein Anfänger mehr — du bist Infrastruktur.`;
+
+    case ROLE_INITIATE_NERD: // (Initiate Nerd)
+      return `🎓 **INITIATION COMPLETE**
+
+Du wurdest ins Nerd-System aufgenommen.
+
+Status: **Initiate Nerd**
+Zugriff: Basismodule aktiviert
+Mission: Lernen, bauen, wachsen
+
+Jeder Experte war einmal hier.`;
+
+    default:
+      return null;
+  }
+}
+
+// =====================
 // 🚀 BOT READY EVENT
 // =====================
-client.once(Events.ClientReady, () => {
+client.once(Events.ClientReady, async () => {
   console.log("====================================");
   console.log("🤖 BOT READY:", client.user.tag);
   console.log("====================================");
   console.log("🧪 DEBUG: Bot ready event fired"); // temp log debugging 1
+
+  // 🔥 INITIAL ROLE SYNC ON START (IMPORTANT)
+  try {
+    console.log("🧠 Running initial role sync...");
+
+    const guild = client.guilds.cache.first();
+    if (guild) {
+      await syncRoles(guild);
+    }
+
+  } catch (err) {
+    console.log("❌ Initial role sync failed:", err);
+  }
 });
 
 // =====================
@@ -77,6 +159,81 @@ function getCategory(message) {
   }
   console.log("🧪 DEBUG: Normal channel detected"); // temp log debugging 1
   return message.channel.parent;
+}
+
+// =====================
+// 🧠 ROLE SYNC (DIFF BASED)
+// =====================
+async function syncRoles(guild) {
+  try {
+    const result = await db.query(
+      `SELECT userId FROM nerds ORDER BY count DESC`
+    );
+
+    const rows = result.rows;
+
+    const newOrder = rows.map(r => r.userId).join(",");
+    const oldOrder = lastRanking.join(",");
+
+    if (newOrder === oldOrder) {
+      console.log("🧠 Rank unchanged -> skipping role update");
+      return;
+    }
+
+    console.log("🔄 Rank changed -> updating roles");
+
+    lastRanking = rows.map(r => r.userId);
+
+    for (let i = 0; i < rows.length; i++) {
+      const member = await guild.members.fetch(rows[i].userId).catch(() => null);
+      if (!member) continue;
+
+      const oldRole = lastRoleMap.get(member.id);
+
+      let newRole = ROLE_INITIATE_NERD;
+
+      if (i === 0) newRole = ROLE_NERD_1337;
+      else if (i === 1) newRole = ROLE_QUANTUM_NERD;
+      else if (i === 2) newRole = ROLE_CORE_NERD;
+
+      // remove all roles
+      await member.roles.remove([
+        ROLE_NERD_1337,
+        ROLE_QUANTUM_NERD,
+        ROLE_CORE_NERD,
+        ROLE_INITIATE_NERD
+      ]).catch(() => {});
+
+      // add new role
+      await member.roles.add(newRole).catch(() => {});
+
+      // =========================
+      // 📢 ROLE UPGRADE MESSAGE
+      // =========================
+
+      if (isInitialSyncDone && oldRole !== newRole) {
+        const channel = await client.channels.fetch(HALL_OF_NERDS_CHANNEL).catch(() => null);
+
+        const msg = getRankMessage(newRole);
+
+        if (channel && msg) {
+          channel.send({
+            content: `📈 <@${member.id}>\n\n${msg}`
+          }).catch(() => {});
+        }
+      }
+
+      lastRoleMap.set(member.id, newRole);
+    }
+
+    console.log("🏁 Roles synced");
+
+    isInitialSyncDone = true;
+    console.log("🧠 Initial role sync completed (notifications enabled)");
+
+  } catch (err) {
+    console.log("❌ syncRoles error:", err);
+  }
 }
 
 // =====================
