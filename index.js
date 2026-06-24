@@ -185,8 +185,19 @@ async function syncRoles(guild) {
     lastRanking = rows.map(r => r.userId);
 
     for (let i = 0; i < rows.length; i++) {
-      const member = await guild.members.fetch(rows[i].userId).catch(() => null);
-      if (!member) continue;
+      let member;
+
+      try {
+        member = await guild.members.fetch(rows[i].userId);
+      } catch (err) {
+        console.log("⚠️ Member not found:", rows[i].userId);
+        continue;
+      }
+
+      if (!member || !member.roles) {
+        console.log("⚠️ Invalid member object:", rows[i].userId);
+        continue;
+      }
 
       const oldRole = lastRoleMap.get(member.id);
 
