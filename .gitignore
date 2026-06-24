@@ -4,6 +4,9 @@
 # Database
 nerds.db
 
+# One-time tools
+scripts/
+
 # Dependencies
 node_modules/
 

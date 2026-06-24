@@ -4,7 +4,7 @@ require('dotenv').config();
 // 📦 IMPORTS
 // =====================
 const { Client, GatewayIntentBits, Events, Partials, EmbedBuilder } = require('discord.js');
-const sqlite3 = require('sqlite3').verbose();
+const { Pool } = require('pg');
 
 // =====================
 // 🤖 DISCORD CLIENT SETUP
@@ -25,12 +25,12 @@ const client = new Client({
 });
 
 // =====================
-// 🗄️ DATABASE (SQLite)
-// Stores:
-// - nerd points
-// - reaction tracking (prevents duplicates)
+// 🗄️ POSTGRES DATABASE (Supabase)
 // =====================
-const db = new sqlite3.Database('./nerds.db');
+const db = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+});
 
 // =====================
 // ⚙️ CONFIG (from .env)
@@ -49,9 +49,6 @@ client.once(Events.ClientReady, () => {
 
 // =====================
 // 📍 HELPER: CATEGORY DETECTION
-// Checks whether message is inside:
-// - normal channel OR
-// - thread inside a channel
 // =====================
 function getCategory(message) {
   if (message.channel.isThread?.()) {
@@ -62,63 +59,52 @@ function getCategory(message) {
 
 // =====================
 // 🤓 EVENT: REACTION ADDED
-// Adds a nerd point when valid reaction is detected
 // =====================
 client.on(Events.MessageReactionAdd, async (reaction, user) => {
 
   console.log("\n🤓 Reaction detected");
 
-  // ❌ ignore bots
   if (user.bot) return;
-
-  // ❌ only nerd emoji counts
   if (reaction.emoji.name !== '🤓') return;
 
   try {
-    // 📩 fetch full message data
     const message = await reaction.message.fetch({ force: true });
 
     const author = message.author;
-
-    // ❌ invalid message or bot message
     if (!author || author.bot) return;
-
-    // ❌ no self-points allowed
     if (author.id === user.id) return;
 
-    // 📍 check if inside allowed category
     const category = getCategory(message);
     if (category?.id !== CODING_AREA_CATEGORY_ID) return;
 
     console.log("✅ Valid reaction for:", author.id);
 
-    // 🔍 check if already counted
-    db.get(
-      `SELECT 1 FROM reactions WHERE messageId = ? AND reactorId = ?`,
-      [message.id, user.id],
-      async (err, row) => {
-
-        if (err) return;
-        if (row) return;
-
-        // 💾 store reaction (prevents duplicates)
-        db.run(
-          `INSERT INTO reactions (messageId, reactorId) VALUES (?, ?)`,
-          [message.id, user.id]
-        );
-
-        // ➕ increase nerd score
-        db.run(`
-          INSERT INTO nerds (userId, count)
-          VALUES (?, 1)
-          ON CONFLICT(userId)
-          DO UPDATE SET count = count + 1
-        `, [author.id]);
-
-        // 📢 send hall-of-nerds message
-        await sendHallMessage(author, message);
-      }
+    // 🔍 CHECK if reaction already counted
+    const check = await db.query(
+      `SELECT 1 FROM reactions WHERE messageId = $1 AND reactorId = $2`,
+      [message.id, user.id]
     );
+
+    if (check.rows.length > 0) return;
+
+    // 💾 STORE reaction (anti-abuse protection)
+    await db.query(
+      `INSERT INTO reactions (messageId, reactorId)
+       VALUES ($1, $2)`,
+      [message.id, user.id]
+    );
+
+    // ➕ INCREASE nerd score
+    await db.query(
+      `INSERT INTO nerds (userId, count)
+       VALUES ($1, 1)
+       ON CONFLICT (userId)
+       DO UPDATE SET count = nerds.count + 1`,
+      [author.id]
+    );
+
+    // 📢 send hall-of-nerds message
+    await sendHallMessage(author, message);
 
   } catch (err) {
     console.log("❌ ADD ERROR:", err);
@@ -127,7 +113,6 @@ client.on(Events.MessageReactionAdd, async (reaction, user) => {
 
 // =====================
 // ➖ EVENT: REACTION REMOVED
-// Removes nerd point if reaction is removed
 // =====================
 client.on(Events.MessageReactionRemove, async (reaction, user) => {
 
@@ -145,26 +130,26 @@ client.on(Events.MessageReactionRemove, async (reaction, user) => {
     const author = message.author;
     if (!author || author.bot) return;
 
-    db.get(
-      `SELECT 1 FROM reactions WHERE messageId = ? AND reactorId = ?`,
-      [message.id, user.id],
-      (err, row) => {
+    // 🔍 check if reaction exists in DB
+    const check = await db.query(
+      `SELECT 1 FROM reactions WHERE messageId = $1 AND reactorId = $2`,
+      [message.id, user.id]
+    );
 
-        if (err || !row) return;
+    if (check.rows.length === 0) return;
 
-        // ❌ remove reaction record
-        db.run(
-          `DELETE FROM reactions WHERE messageId = ? AND reactorId = ?`,
-          [message.id, user.id]
-        );
+    // ❌ remove reaction record
+    await db.query(
+      `DELETE FROM reactions WHERE messageId = $1 AND reactorId = $2`,
+      [message.id, user.id]
+    );
 
-        // ➖ decrease nerd score safely
-        db.run(`
-          UPDATE nerds
-          SET count = CASE WHEN count > 0 THEN count - 1 ELSE 0 END
-          WHERE userId = ?
-        `, [author.id]);
-      }
+    // ➖ decrease nerd score safely
+    await db.query(
+      `UPDATE nerds
+       SET count = CASE WHEN count > 0 THEN count - 1 ELSE 0 END
+       WHERE userId = $1`,
+      [author.id]
     );
 
   } catch (err) {
@@ -174,7 +159,6 @@ client.on(Events.MessageReactionRemove, async (reaction, user) => {
 
 // =====================
 // 📢 HALL OF NERDS MESSAGE
-// Sends notification when someone earns a point
 // =====================
 async function sendHallMessage(author, message) {
   try {
@@ -201,18 +185,7 @@ async function sendHallMessage(author, message) {
 
 // =====================
 // 🏆 /rank COMMAND
-// Shows top 10 users
 // =====================
-function getTopNerds() {
-  return new Promise((resolve, reject) => {
-    db.all(
-      `SELECT * FROM nerds ORDER BY count DESC LIMIT 10`,
-      [],
-      (err, rows) => err ? reject(err) : resolve(rows)
-    );
-  });
-}
-
 client.on(Events.InteractionCreate, async interaction => {
 
   if (!interaction.isChatInputCommand()) return;
@@ -223,7 +196,12 @@ client.on(Events.InteractionCreate, async interaction => {
   try {
     await interaction.deferReply();
 
-    const rows = await getTopNerds();
+    // 📊 fetch leaderboard
+    const result = await db.query(
+      `SELECT * FROM nerds ORDER BY count DESC LIMIT 10`
+    );
+
+    const rows = result.rows;
 
     let desc = "";
 
