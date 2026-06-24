@@ -155,9 +155,9 @@ client.on(Events.MessageReactionAdd, async (reaction, user) => {
     console.log("🧪 DEBUG: Updating nerd score for:", author.id); // temp log debugging 1
 
     await db.query(
-      `INSERT INTO nerds (userId, count)
+      `INSERT INTO nerds (userid, count)
        VALUES ($1, 1)
-       ON CONFLICT (userId)
+       ON CONFLICT (userid)
        DO UPDATE SET count = nerds.count + 1`,
       [author.id]
     );
@@ -224,7 +224,7 @@ client.on(Events.MessageReactionRemove, async (reaction, user) => {
     await db.query(
       `UPDATE nerds
        SET count = CASE WHEN count > 0 THEN count - 1 ELSE 0 END
-       WHERE userId = $1`,
+       WHERE userid = $1`,
       [author.id]
     );
 
@@ -299,7 +299,7 @@ client.on(Events.InteractionCreate, async interaction => {
 
     for (let i = 0; i < rows.length; i++) {
       try {
-        const member = await interaction.guild.members.fetch(rows[i].userId);
+        const member = await interaction.guild.members.fetch(rows[i].userid);
 
         const medal = ["🥇","🥈","🥉"][i] || "🔹";
 
