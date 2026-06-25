@@ -64,6 +64,14 @@ const ROLE_QUANTUM_NERD = process.env.ROLE_QUANTUM_NERD;
 const ROLE_CORE_NERD = process.env.ROLE_CORE_NERD;
 const ROLE_INITIATE_NERD = process.env.ROLE_INITIATE_NERD;
 
+console.log("🧠 ROLE CHECK:");
+console.log({
+  ROLE_NERD_1337,
+  ROLE_QUANTUM_NERD,
+  ROLE_CORE_NERD,
+  ROLE_INITIATE_NERD
+});
+
 // =====================
 // 🧠 XP ROLE SYSTEM
 // =====================
@@ -108,15 +116,26 @@ async function checkLevelUp(userId, newXp, oldXp) {
   const newRole = getRoleByXP(newXp);
 
   // remove old nerd roles
-  await member.roles.remove([
-    ROLE_NERD_1337,
-    ROLE_QUANTUM_NERD,
-    ROLE_CORE_NERD,
-    ROLE_INITIATE_NERD
-  ]).catch(() => {});
+  try {
+    await member.roles.remove([
+      ROLE_NERD_1337,
+      ROLE_QUANTUM_NERD,
+      ROLE_CORE_NERD,
+      ROLE_INITIATE_NERD
+    ]);
+    console.log("🧹 ROLES REMOVED:", member.user.tag);
+  } catch (err) {
+    console.log("❌ ROLE REMOVE FAILED:", err.message);
+  }
 
   // add new role
-  await member.roles.add(newRole).catch(() => {});
+  try {
+    await member.roles.add(newRole);
+    console.log("➕ ROLE ADDED:", member.user.tag, newRole);
+  } catch (err) {
+    console.log("❌ ROLE ADD FAILED:", member.user.tag);
+    console.log("❌ REASON:", err.message);
+  }
 
   // send level up message
   const channel = await client.channels.fetch(HALL_OF_NERDS_CHANNEL).catch(() => null);
@@ -212,7 +231,6 @@ client.once(Events.ClientReady, async () => {
     console.log("🧠 Running initial role sync...");
 
     const guild = await client.guilds.fetch(process.env.GUILD_ID);
-    await guild.members.fetch();
     if (guild) {
       await syncRoles(guild);
     }
@@ -227,55 +245,68 @@ client.once(Events.ClientReady, async () => {
 // =====================
 async function syncRoles(guild) {
   try {
-    const result = await db.query(
-      `SELECT userid, count FROM nerds`
-    );
+    console.log("🧠 syncRoles START");
 
+    const result = await db.query(`SELECT userid, count FROM nerds`);
     const rows = result.rows;
 
+    console.log(`📦 Found ${rows.length} users in DB`);
+
     for (const row of rows) {
+      console.log("\n----------------------------");
+      console.log("🧠 USER:", row.userid, "XP:", row.count);
+
       let member;
 
       try {
         member = await guild.members.fetch(row.userid);
-      } catch {
+        console.log("✅ MEMBER FOUND:", member.user.tag);
+      } catch (err) {
+        console.log("❌ MEMBER FETCH FAILED:", row.userid);
+        console.log(err?.message);
         continue;
       }
 
-      const xp = row.count;
+      cconst xp = Number(row.count);
       const newRole = getRoleByXP(xp);
 
+      console.log("🎯 ROLE TARGET:", newRole);
+
+      try {
+        // remove all nerd roles
+        await member.roles.remove([
+          ROLE_NERD_1337,
+          ROLE_QUANTUM_NERD,
+          ROLE_CORE_NERD,
+          ROLE_INITIATE_NERD
+        ]);
+
+        console.log("🧹 OLD ROLES REMOVED");
+
+        // add correct role
+        await member.roles.add(newRole);
+
+        console.log("➕ ROLE ADDED:", newRole);
+
+      } catch (err) {
+        console.log("❌ ROLE UPDATE FAILED for", member.user.tag);
+        console.log(err);
+        continue;
+      }
+
       const oldRole = lastRoleMap.get(member.id);
-
-      await member.roles.remove([
-        ROLE_NERD_1337,
-        ROLE_QUANTUM_NERD,
-        ROLE_CORE_NERD,
-        ROLE_INITIATE_NERD
-      ]).catch(() => {});
-
-      // add new role
-      await member.roles.add(newRole).catch(() => {});
-
-      // =========================
-      // 📢 ROLE UPGRADE MESSAGE
-      // =========================
-
-      // only update cache state, do NOT trigger XP logic notifications anymore
       if (oldRole !== newRole) {
-        // optional: silent correction only
+        console.log("📈 ROLE CHANGE:", oldRole, "→", newRole);
       }
 
       lastRoleMap.set(member.id, newRole);
     }
 
-    console.log("🏁 Roles synced");
-
+    console.log("\n🏁 SYNC COMPLETE");
     isInitialSyncDone = true;
-    console.log("🧠 Initial role sync completed (notifications enabled)");
 
   } catch (err) {
-    console.log("❌ syncRoles error:", err);
+    console.log("❌ syncRoles GLOBAL ERROR:", err);
   }
 }
 
