@@ -14,8 +14,9 @@ const express = require('express');
 // =====================
 const app = express();
 
-app.get("/", (req, res) => {
-  res.send("NerdBot is running 🤓");
+app.all("/", (req, res) => {
+  console.log(`🌐 Uptime ping received (${req.method})`);
+  res.status(200).send("NerdBot is running 🤓");
 });
 
 const PORT = process.env.PORT || 3000;
