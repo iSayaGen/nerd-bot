@@ -267,7 +267,7 @@ async function syncRoles(guild) {
         continue;
       }
 
-      cconst xp = Number(row.count);
+      const xp = Number(row.count);
       const newRole = getRoleByXP(xp);
 
       console.log("🎯 ROLE TARGET:", newRole);

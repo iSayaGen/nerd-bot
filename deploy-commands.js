@@ -13,7 +13,7 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName('nerdstatus')
-    .setDescription('Zeigt deinen aktuellen Nerd Status')
+    .setDescription('Zeigt deinen aktuellen Nerd Status'),
 
   new SlashCommandBuilder()
     .setName('xp')
