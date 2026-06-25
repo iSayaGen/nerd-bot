@@ -116,12 +116,12 @@ ROLE_INITIATE_NERD=role_id
 
 ## ⚙️ Required Discord Roles
 
-You must create the following roles and add their IDs to your `.env`:
+You must create roles and add their IDs to your `.env`. Suggestion:
 
-- ROLE_NERD_1337
-- ROLE_QUANTUM_NERD
-- ROLE_CORE_NERD
-- ROLE_INITIATE_NERD
+- 👑 Nerd 1337
+- 🥈 Quantum Nerd
+- 🥉 Core Nerd
+- 🎓 Initiate Nerd
 
 ⚠️ These are required for the XP system to function correctly.
 
