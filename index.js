@@ -116,23 +116,39 @@ async function checkLevelUp(userId, newXp, oldXp) {
   // determine role
   const newRole = getRoleByXP(newXp);
 
-  // remove old nerd roles
-  try {
-    await member.roles.remove([
-      ROLE_NERD_1337,
-      ROLE_QUANTUM_NERD,
-      ROLE_CORE_NERD,
-      ROLE_INITIATE_NERD
-    ]);
-    console.log("🧹 ROLES REMOVED:", member.user.tag);
-  } catch (err) {
-    console.log("❌ ROLE REMOVE FAILED:", err.message);
+  const roleIds = [
+    ROLE_INITIATE_NERD,
+    ROLE_CORE_NERD,
+    ROLE_QUANTUM_NERD,
+    ROLE_NERD_1337
+  ];
+
+  // 👉 Skip if User has correct role
+  if (member.roles.cache.has(newRole)) {
+    console.log("⏭️ LEVEL UP: ROLE ALREADY CORRECT → skip");
+    return;
   }
 
-  // add new role
+  // 👉 remove Nerd-Role
+  const rolesToRemove = roleIds.filter(id =>
+    member.roles.cache.has(id)
+  );
+
+  if (rolesToRemove.length > 0) {
+    try {
+      await member.roles.remove(rolesToRemove);
+      console.log("🧹 LEVEL UP: OLD ROLES REMOVED:", rolesToRemove);
+    } catch (err) {
+      console.log("❌ ROLE REMOVE FAILED:", err.message);
+    }
+  } else {
+    console.log("ℹ️ LEVEL UP: NO OLD ROLES TO REMOVE");
+  }
+
+  // 👉 give new role
   try {
     await member.roles.add(newRole);
-    console.log("➕ ROLE ADDED:", member.user.tag, newRole);
+    console.log("➕ LEVEL UP: ROLE ADDED:", member.user.tag, newRole);
   } catch (err) {
     console.log("❌ ROLE ADD FAILED:", member.user.tag);
     console.log("❌ REASON:", err.message);
@@ -274,19 +290,33 @@ async function syncRoles(guild) {
       console.log("🎯 ROLE TARGET:", newRole);
 
       try {
-        // remove all nerd roles
-        await member.roles.remove([
-          ROLE_NERD_1337,
-          ROLE_QUANTUM_NERD,
+        const roleIds = [
+          ROLE_INITIATE_NERD,
           ROLE_CORE_NERD,
-          ROLE_INITIATE_NERD
-        ]);
+          ROLE_QUANTUM_NERD,
+          ROLE_NERD_1337
+        ];
 
-        console.log("🧹 OLD ROLES REMOVED");
+        // 👉 1. Skip wenn Rolle schon korrekt
+        if (member.roles.cache.has(newRole)) {
+          console.log("⏭️ ROLE ALREADY CORRECT → skip");
+          continue; // wichtig: geht zum nächsten user
+        }
 
-        // add correct role
+        // 👉 2. Nur vorhandene Nerd-Rollen entfernen
+        const rolesToRemove = roleIds.filter(id =>
+          member.roles.cache.has(id)
+        );
+
+        if (rolesToRemove.length > 0) {
+          await member.roles.remove(rolesToRemove);
+          console.log("🧹 OLD ROLES REMOVED:", rolesToRemove);
+        } else {
+          console.log("ℹ️ NO OLD ROLES TO REMOVE");
+        }
+
+        // 👉 3. Neue Rolle setzen
         await member.roles.add(newRole);
-
         console.log("➕ ROLE ADDED:", newRole);
 
       } catch (err) {
