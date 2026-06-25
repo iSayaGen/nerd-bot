@@ -30,11 +30,23 @@ The bot is deployed on **Render** and uses **Supabase PostgreSQL** for persisten
 
 ---
 
+## 🧠 XP System
+
+Users gain XP by reacting with 🤓 to messages in the coding category.
+
+XP thresholds:
+- 1 XP → Initiate Nerd
+- 5 XP → Core Nerd
+- 20 XP → Quantum Nerd
+- 50 XP → 1337 Nerd
+
+---
+
 ## 🧠 How it works
 
 1. A user posts a helpful message in a designated channel
 2. Another user reacts with 🤓
-3. The message author receives +1 Nerd Point
+3. The message author receives +1 Nerd Point (XP)
 4. Points are stored in a database
 5. The reaction is stored to prevent duplicates
 6. A notification is sent referencing the original message
@@ -47,6 +59,8 @@ The bot is deployed on **Render** and uses **Supabase PostgreSQL** for persisten
 | Command | Description |
 |--------|-------------|
 | `/rank` | Shows top 10 users with highest Nerd score |
+| `/xp` | Shows your XP progress and next role |
+| `/nerdstatus` | Shows your current Nerd rank and status message |
 
 ---
 
@@ -92,9 +106,24 @@ GUILD_ID=your_server_id
 CODING_AREA_CATEGORY_ID=your_category_id
 HALL_OF_NERDS_CHANNEL=your_channel_id
 DATABASE_URL=your_supabase_connection_string
+ROLE_NERD_1337=role_id
+ROLE_QUANTUM_NERD=role_id
+ROLE_CORE_NERD=role_id
+ROLE_INITIATE_NERD=role_id
 ```
 
 ---
+
+## ⚙️ Required Discord Roles
+
+You must create the following roles and add their IDs to your `.env`:
+
+- ROLE_NERD_1337
+- ROLE_QUANTUM_NERD
+- ROLE_CORE_NERD
+- ROLE_INITIATE_NERD
+
+⚠️ These are required for the XP system to function correctly.
 
 ## ☁️ Deployment (Render)
 
@@ -109,6 +138,8 @@ npm install
 node index.js
 
 Render automatically redeploys when changes are pushed to GitHub.
+
+After updating `.env`, always restart the bot to apply role changes.
 
 ---
 
