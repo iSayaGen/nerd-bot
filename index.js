@@ -514,6 +514,48 @@ client.on(Events.InteractionCreate, async interaction => {
 });
 
 // =====================
+// 🧠 /nerdstatus COMMAND
+// =====================
+client.on(Events.InteractionCreate, async interaction => {
+
+  if (!interaction.isChatInputCommand()) return;
+  if (interaction.commandName !== 'nerdstatus') return;
+
+  try {
+    const member = await interaction.guild.members.fetch(interaction.user.id);
+
+    // Rolle bestimmen
+    let roleId = null;
+
+    if (member.roles.cache.has(ROLE_NERD_1337)) roleId = ROLE_NERD_1337;
+    else if (member.roles.cache.has(ROLE_QUANTUM_NERD)) roleId = ROLE_QUANTUM_NERD;
+    else if (member.roles.cache.has(ROLE_CORE_NERD)) roleId = ROLE_CORE_NERD;
+    else roleId = ROLE_INITIATE_NERD;
+
+    const msg = getRankMessage(roleId);
+
+    if (!msg) {
+      return interaction.reply({
+        content: "❌ Kein Status gefunden.",
+        ephemeral: true
+      });
+    }
+
+    await interaction.reply({
+      content: `📊 Dein aktueller Nerd-Status:\n\n>>> ${msg}`,
+      ephemeral: false
+    });
+
+  } catch (err) {
+    console.log("❌ NERDSTATUS ERROR:", err);
+    await interaction.reply({
+      content: "❌ Fehler beim Laden deines Status.",
+      ephemeral: true
+    });
+  }
+});
+
+// =====================
 // 🔑 LOGIN
 // =====================
 client.login(process.env.TOKEN);

@@ -9,9 +9,12 @@ const GUILD_ID = process.env.GUILD_ID;
 const commands = [
   new SlashCommandBuilder()
     .setName('rank')
-    .setDescription('Zeigt das Nerd Ranking')
-    .toJSON()
-];
+    .setDescription('Zeigt das Nerd Ranking'),
+
+  new SlashCommandBuilder()
+    .setName('nerdstatus')
+    .setDescription('Zeigt deinen aktuellen Nerd Status')
+].map(cmd => cmd.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(TOKEN);
 
