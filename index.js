@@ -84,6 +84,56 @@ function getNextRoleInfo(xp) {
 }
 
 // =====================
+// ⚡ LEVEL UP CHECK SYSTEM
+// =====================
+
+// checks if a user crosses a milestone and triggers role update + message
+async function checkLevelUp(userId, newXp, oldXp) {
+
+  // XP milestones
+  const milestones = [1, 5, 20, 50];
+
+  // find if a milestone was crossed
+  const crossed = milestones.find(m => oldXp < m && newXp >= m);
+
+  if (!crossed) return; // no level up
+
+  const guild = await client.guilds.fetch(process.env.GUILD_ID);
+  if (!guild) return;
+
+  const member = await guild.members.fetch(userId).catch(() => null);
+  if (!member) return;
+
+  // determine role
+  const newRole = getRoleByXP(newXp);
+
+  // remove old nerd roles
+  await member.roles.remove([
+    ROLE_NERD_1337,
+    ROLE_QUANTUM_NERD,
+    ROLE_CORE_NERD,
+    ROLE_INITIATE_NERD
+  ]).catch(() => {});
+
+  // add new role
+  await member.roles.add(newRole).catch(() => {});
+
+  // send level up message
+  const channel = await client.channels.fetch(HALL_OF_NERDS_CHANNEL).catch(() => null);
+
+  const msg = getRankMessage(newRole);
+
+  if (channel && msg) {
+    channel.send({
+      content: `🚀 <@${userId}> hat Level ${crossed} XP erreicht!\n\n${msg}`
+    }).catch(() => {});
+  }
+
+  // DEBUG
+  console.log(`⚡ LEVEL UP: ${userId} reached ${crossed} XP`);
+}
+
+// =====================
 // 🔥 STATE
 // =====================
 let isInitialSyncDone = false;
@@ -161,7 +211,8 @@ client.once(Events.ClientReady, async () => {
   try {
     console.log("🧠 Running initial role sync...");
 
-    const guild = client.guilds.cache.first();
+    const guild = await client.guilds.fetch(process.env.GUILD_ID);
+    await guild.members.fetch();
     if (guild) {
       await syncRoles(guild);
     }
@@ -210,16 +261,9 @@ async function syncRoles(guild) {
       // 📢 ROLE UPGRADE MESSAGE
       // =========================
 
-      if (isInitialSyncDone && oldRole !== newRole) {
-        const channel = await client.channels.fetch(HALL_OF_NERDS_CHANNEL).catch(() => null);
-
-        const msg = getRankMessage(newRole);
-
-        if (channel && msg) {
-          channel.send({
-            content: `📈 <@${member.id}>\n\n${msg}`
-          }).catch(() => {});
-        }
+      // only update cache state, do NOT trigger XP logic notifications anymore
+      if (oldRole !== newRole) {
+        // optional: silent correction only
       }
 
       lastRoleMap.set(member.id, newRole);
@@ -318,13 +362,30 @@ client.on(Events.MessageReactionAdd, async (reaction, user) => {
     // ➕ increase nerd score
     console.log("🧪 DEBUG: Updating nerd score for:", author.id); // temp log debugging 1
 
-    await db.query(
-      `INSERT INTO nerds (userid, count)
-       VALUES ($1, 1)
-       ON CONFLICT (userid)
-       DO UPDATE SET count = nerds.count + 1`,
+    // get old XP first
+    const oldResult = await db.query(
+      `SELECT count FROM nerds WHERE userid = $1`,
       [author.id]
     );
+
+    const oldXp = oldResult.rows[0]?.count || 0;
+
+    // update XP
+    const newResult = await db.query(
+      `INSERT INTO nerds (userid, count)
+      VALUES ($1, 1)
+      ON CONFLICT (userid)
+      DO UPDATE SET count = nerds.count + 1
+      RETURNING count`,
+      [author.id]
+    );
+
+    const newXp = newResult.rows[0].count;
+
+    // =====================
+    // ⚡ LEVEL UP CHECK (NEW)
+    // =====================
+    await checkLevelUp(author.id, newXp, oldXp);
 
     console.log("🧪 DEBUG: DB update completed"); // temp log debugging 1
 
