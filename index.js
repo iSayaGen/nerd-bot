@@ -302,12 +302,19 @@ client.on(Events.MessageReactionAdd, async (reaction, user) => {
     }
 
     // 🔍 check duplicate reaction
-    console.log("🧪 DEBUG: Checking duplicate reaction"); // temp log debugging 1
+    console.log("🧪 DEBUG: Checking duplicate reaction");
 
-    const check = await db.query(
-      `SELECT 1 FROM reactions WHERE messageId = $1 AND reactorId = $2`,
-      [message.id, user.id]
-    );
+    let check;
+
+    try {
+      check = await db.query(
+        `SELECT 1 FROM reactions WHERE messageid = $1 AND reactorid = $2`,
+        [message.id, user.id]
+      );
+    } catch (err) {
+      console.log("⚠️ reactions table missing -> skipping duplicate check"); // temp log debugging 1
+      check = { rows: [] };
+    }
 
     if (check.rows.length > 0) {
       console.log("🧪 DEBUG: Duplicate reaction blocked"); // temp log debugging 1
@@ -322,7 +329,7 @@ client.on(Events.MessageReactionAdd, async (reaction, user) => {
     console.log("🧪 DEBUG: Inserting reaction into DB"); // temp log debugging 1
 
     await db.query(
-      `INSERT INTO reactions (messageId, reactorId) VALUES ($1, $2)`,
+      `INSERT INTO reactions (messageid, reactorid) VALUES ($1, $2)`,
       [message.id, user.id]
     );
 
@@ -378,20 +385,27 @@ client.on(Events.MessageReactionRemove, async (reaction, user) => {
     if (!author || author.bot) return;
 
     // 🔍 check if reaction exists
-    console.log("🧪 DEBUG: Checking reaction exists"); // temp log debugging 1
+    console.log("🧪 DEBUG: Checking reaction exists");
 
-    const check = await db.query(
-      `SELECT 1 FROM reactions WHERE messageId = $1 AND reactorId = $2`,
-      [message.id, user.id]
-    );
+    let check;
+
+    try {
+      check = await db.query(
+        `SELECT 1 FROM reactions WHERE messageid = $1 AND reactorid = $2`,
+        [message.id, user.id]
+      );
+    } catch (err) {
+      console.log("⚠️ reactions table missing -> skipping exists check"); // temp log debugging 1
+      check = { rows: [] };
+    }
 
     if (check.rows.length === 0) return;
 
-    console.log("🧪 DEBUG: Reaction exists -> removing"); // temp log debugging 1
+    console.log("🧪 DEBUG: Reaction exists -> removing");; // temp log debugging 1
 
     // ❌ delete reaction record
     await db.query(
-      `DELETE FROM reactions WHERE messageId = $1 AND reactorId = $2`,
+      `DELETE FROM reactions WHERE messageid = $1 AND reactorid = $2`,
       [message.id, user.id]
     );
 
