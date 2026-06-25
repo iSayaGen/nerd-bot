@@ -125,21 +125,25 @@ You must create the following roles and add their IDs to your `.env`:
 
 ⚠️ These are required for the XP system to function correctly.
 
+---
+
 ## ☁️ Deployment (Render)
 
 The bot is deployed as a **Render Web Service**.
 
 ### Build command:
-
 npm install
 
 ### Start command
-
 node index.js
 
 Render automatically redeploys when changes are pushed to GitHub.
 
 After updating `.env`, always restart the bot to apply role changes.
+
+> ⚠️ Render free tier sleeps after ~15 min of inactivity.  
+> Use an uptime monitor (e.g. UptimeRobot) to ping the service every ~10 min to keep the bot online.
+> The bot includes a universal endpoint (`app.all("/")`) to handle these requests.
 
 ---
 
