@@ -64,14 +64,37 @@ const ROLE_QUANTUM_NERD = process.env.ROLE_QUANTUM_NERD;
 const ROLE_CORE_NERD = process.env.ROLE_CORE_NERD;
 const ROLE_INITIATE_NERD = process.env.ROLE_INITIATE_NERD;
 
-// when bot restarts rank messages are not triggered
+// =====================
+// 🧠 XP ROLE SYSTEM
+// =====================
+function getRoleByXP(xp) {
+  if (xp >= 50) return ROLE_NERD_1337;
+  if (xp >= 20) return ROLE_QUANTUM_NERD;
+  if (xp >= 5) return ROLE_CORE_NERD;
+  if (xp >= 1) return ROLE_INITIATE_NERD;
+  return ROLE_INITIATE_NERD;
+}
+
+function getNextRoleInfo(xp) {
+  if (xp < 1) return { next: 1, role: "INITIATE NERD" };
+  if (xp < 5) return { next: 5, role: "CORE NERD" };
+  if (xp < 20) return { next: 20, role: "QUANTUM NERD" };
+  if (xp < 50) return { next: 50, role: "NERD 1337" };
+  return { next: null, role: "MAX LEVEL" };
+}
+
+// =====================
+// 🔥 STATE
+// =====================
 let isInitialSyncDone = false;
 
 // cached ranking state (for diff checking)
 let lastRanking = [];
-
 const lastRoleMap = new Map();
 
+// =====================
+// 🏆 ROLE MESSAGES
+// =====================
 function getRankMessage(roleId) {
   switch (roleId) {
     case ROLE_NERD_1337:
@@ -87,7 +110,7 @@ Die Matrix erkennt dich als Anomalie der Intelligenz.
 
 🤓 Willkommen an der Spitze.`;
 
-    case ROLE_QUANTUM_NERD: // (Quantum Nerd)
+    case ROLE_QUANTUM_NERD:
       return `🧠 **QUANTUM UPGRADE DETECTED**
 
 Dein Denkmodell hat die klassische Logik verlassen.
@@ -98,7 +121,7 @@ Bonus: Realität leicht instabil
 
 Du beginnst, Lösungen zu sehen, bevor Probleme entstehen.`;
 
-    case ROLE_CORE_NERD: // (Core Nerd)
+    case ROLE_CORE_NERD:
       return `⚡ **CORE SYSTEM ACTIVATED**
 
 Du bist jetzt ein stabiler Bestandteil des Nerd-Netzwerks.
@@ -109,7 +132,7 @@ Performance: Überdurchschnittlich konstant
 
 Du bist kein Anfänger mehr — du bist Infrastruktur.`;
 
-    case ROLE_INITIATE_NERD: // (Initiate Nerd)
+    case ROLE_INITIATE_NERD:
       return `🎓 **INITIATION COMPLETE**
 
 Du wurdest ins Nerd-System aufgenommen.
@@ -149,70 +172,30 @@ client.once(Events.ClientReady, async () => {
 });
 
 // =====================
-// 📍 HELPER: CATEGORY DETECTION
-// =====================
-function getCategory(message) {
-  console.log("🧪 DEBUG: getCategory called"); // temp log debugging 1
-  if (message.channel.isThread?.()) {
-    console.log("🧪 DEBUG: Thread detected"); // temp log debugging 1
-    return message.channel.parent?.parent;
-  }
-  console.log("🧪 DEBUG: Normal channel detected"); // temp log debugging 1
-  return message.channel.parent;
-}
-
-// =====================
-// 🧠 ROLE SYNC (DIFF BASED)
+// 🧠 ROLE SYNC (XP BASED)
 // =====================
 async function syncRoles(guild) {
   try {
     const result = await db.query(
-      `SELECT userid FROM nerds ORDER BY count DESC`
+      `SELECT userid, count FROM nerds`
     );
 
     const rows = result.rows;
 
-    // neue Reihenfolge
-    const newRanking = rows.map(r => r.userid).filter(Boolean);
-
-    // alte Reihenfolge
-    const oldRanking = lastRanking;
-
-    // vergleichen
-    if (oldRanking.join(",") === newRanking.join(",")) {
-      console.log("🧠 Rank unchanged -> skipping role update");
-      return;
-    }
-
-    console.log("🔄 Rank changed -> updating roles");
-
-    // cache updaten
-    lastRanking = newRanking;
-
-    for (let i = 0; i < rows.length; i++) {
+    for (const row of rows) {
       let member;
 
       try {
-        member = await guild.members.fetch(rows[i].userid);
-      } catch (err) {
-        console.log("⚠️ Member not found:", rows[i].userid);
+        member = await guild.members.fetch(row.userid);
+      } catch {
         continue;
       }
 
-      if (!member || !member.roles) {
-        console.log("⚠️ Invalid member object:", rows[i].userid);
-        continue;
-      }
+      const xp = row.count;
+      const newRole = getRoleByXP(xp);
 
       const oldRole = lastRoleMap.get(member.id);
 
-      let newRole = ROLE_INITIATE_NERD;
-
-      if (i === 0) newRole = ROLE_NERD_1337;
-      else if (i === 1) newRole = ROLE_QUANTUM_NERD;
-      else if (i === 2) newRole = ROLE_CORE_NERD;
-
-      // remove all roles
       await member.roles.remove([
         ROLE_NERD_1337,
         ROLE_QUANTUM_NERD,
@@ -253,7 +236,7 @@ async function syncRoles(guild) {
 }
 
 // =====================
-// 🤓 REACTION ADDED EVENT
+// 🤓 REACTION ADD
 // =====================
 client.on(Events.MessageReactionAdd, async (reaction, user) => {
 
@@ -311,8 +294,7 @@ client.on(Events.MessageReactionAdd, async (reaction, user) => {
         `SELECT 1 FROM reactions WHERE messageid = $1 AND reactorid = $2`,
         [message.id, user.id]
       );
-    } catch (err) {
-      console.log("⚠️ reactions table missing -> skipping duplicate check"); // temp log debugging 1
+    } catch {
       check = { rows: [] };
     }
 
@@ -357,7 +339,7 @@ client.on(Events.MessageReactionAdd, async (reaction, user) => {
 });
 
 // =====================
-// ➖ REACTION REMOVED EVENT
+// 🤓 REACTION REMOVE
 // =====================
 client.on(Events.MessageReactionRemove, async (reaction, user) => {
 
@@ -425,7 +407,7 @@ client.on(Events.MessageReactionRemove, async (reaction, user) => {
 });
 
 // =====================
-// 📢 HALL OF NERDS MESSAGE
+// 📢 HALL MESSAGE
 // =====================
 async function sendHallMessage(author, message) {
   try {
@@ -439,16 +421,12 @@ async function sendHallMessage(author, message) {
 
     const link = `https://discord.com/channels/${message.guild.id}/${message.channel.id}/${message.id}`;
 
-    const title = message.channel.isThread()
-      ? message.channel.name
-      : message.channel.name;
-
     console.log("🧪 DEBUG: Sending message to hall channel"); // temp log debugging 1
-
+    
     await channel.send({
       content:
         `🎉 <@${author.id}> hat sich ein Nerd verdient 🤓\n` +
-        `💬 Quelle: **${title}**\n` +
+        `💬 Quelle: **${message.channel.name}**\n` +
         `🔗 ${link}`
     });
 
@@ -460,7 +438,17 @@ async function sendHallMessage(author, message) {
 }
 
 // =====================
-// 🏆 /rank COMMAND
+// 📍 CATEGORY
+// =====================
+function getCategory(message) {
+  if (message.channel.isThread?.()) {
+    return message.channel.parent?.parent;
+  }
+  return message.channel.parent;
+}
+
+// =====================
+// 🏆 /rank
 // =====================
 client.on(Events.InteractionCreate, async interaction => {
 
@@ -489,11 +477,8 @@ client.on(Events.InteractionCreate, async interaction => {
     for (let i = 0; i < rows.length; i++) {
       try {
         const member = await interaction.guild.members.fetch(rows[i].userid);
-
         const medal = ["🥇","🥈","🥉"][i] || "🔹";
-
         desc += `${medal} **${member.displayName}** — 🤓 ${rows[i].count}\n`;
-
       } catch {
         desc += `🔹 Unknown — 🤓 ${rows[i].count}\n`;
       }
@@ -514,7 +499,7 @@ client.on(Events.InteractionCreate, async interaction => {
 });
 
 // =====================
-// 🧠 /nerdstatus COMMAND
+// 🧠 /nerdstatus
 // =====================
 client.on(Events.InteractionCreate, async interaction => {
 
@@ -524,22 +509,13 @@ client.on(Events.InteractionCreate, async interaction => {
   try {
     const member = await interaction.guild.members.fetch(interaction.user.id);
 
-    // Rolle bestimmen
-    let roleId = null;
+    let roleId = ROLE_INITIATE_NERD;
 
     if (member.roles.cache.has(ROLE_NERD_1337)) roleId = ROLE_NERD_1337;
     else if (member.roles.cache.has(ROLE_QUANTUM_NERD)) roleId = ROLE_QUANTUM_NERD;
     else if (member.roles.cache.has(ROLE_CORE_NERD)) roleId = ROLE_CORE_NERD;
-    else roleId = ROLE_INITIATE_NERD;
 
     const msg = getRankMessage(roleId);
-
-    if (!msg) {
-      return interaction.reply({
-        content: "❌ Kein Status gefunden.",
-        ephemeral: true
-      });
-    }
 
     await interaction.reply({
       content: `📊 Dein aktueller Nerd-Status:\n\n>>> ${msg}`,
@@ -548,10 +524,59 @@ client.on(Events.InteractionCreate, async interaction => {
 
   } catch (err) {
     console.log("❌ NERDSTATUS ERROR:", err);
-    await interaction.reply({
-      content: "❌ Fehler beim Laden deines Status.",
-      ephemeral: true
-    });
+  }
+});
+
+// =====================
+// 🆕 /xp COMMAND
+// =====================
+client.on(Events.InteractionCreate, async interaction => {
+
+  if (!interaction.isChatInputCommand()) return;
+  if (interaction.commandName !== 'xp') return;
+
+  try {
+    const result = await db.query(
+      `SELECT count FROM nerds WHERE userid = $1`,
+      [interaction.user.id]
+    );
+
+    const xp = result.rows[0]?.count || 0;
+
+    const role = getRoleByXP(xp);
+    const next = getNextRoleInfo(xp);
+
+    const barLength = 12;
+    let progress = 0;
+
+    if (next.next) {
+      const prevThreshold =
+        next.next === 1 ? 0 :
+        next.next === 5 ? 1 :
+        next.next === 20 ? 5 :
+        next.next === 50 ? 20 : 50;
+
+      progress = Math.min(xp - prevThreshold, next.next - prevThreshold);
+    }
+
+    const filled = Math.round((progress / (next.next ? (next.next - (next.next === 1 ? 0 : next.next === 5 ? 1 : next.next === 20 ? 5 : 20)) : 1)) * barLength);
+
+    const bar = "█".repeat(Math.max(0, filled)) + "░".repeat(Math.max(0, barLength - filled));
+
+    const embed = new EmbedBuilder()
+      .setTitle("🤓 XP Status")
+      .setColor(0x00AE86)
+      .setDescription(
+        `**XP:** ${xp}\n` +
+        `**Aktuelle Rolle:** <@&${role}>\n` +
+        `**Nächste Rolle:** ${next.role}\n\n` +
+        `\`${bar}\``
+      );
+
+    await interaction.reply({ embeds: [embed] });
+
+  } catch (err) {
+    console.log("❌ XP ERROR:", err);
   }
 });
 

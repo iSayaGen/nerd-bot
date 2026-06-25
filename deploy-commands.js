@@ -14,6 +14,10 @@ const commands = [
   new SlashCommandBuilder()
     .setName('nerdstatus')
     .setDescription('Zeigt deinen aktuellen Nerd Status')
+
+  new SlashCommandBuilder()
+    .setName('xp')
+    .setDescription('Zeigt deinen XP Fortschritt')
 ].map(cmd => cmd.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(TOKEN);
